@@ -32,8 +32,8 @@ void cmd_unrecognized(SerialCommands *sender, const char *cmd)
 }
 
 Preferences preferences; // For the permanent storage in EEPROM
-uint16_t default_delayTime = 0.2;
-uint16_t default_debounceTime = 50;
+uint16_t default_delayTime = 50;
+uint16_t default_debounceTime = 1000;
 uint16_t dl = 0;            //  To leave enough time to the VHX 7000 to take action into account !
 uint16_t debounce_time = 0; // for the push button
 
@@ -59,11 +59,13 @@ void takePicture()
 void takePictureByCommand(SerialCommands *sender)
 {
   takePicture();
+  Serial.println("Picture taken was initiated by serial command");
 }
 
 void takePictureByButton()
 {
   takePicture();
+  Serial.println("Picture taken was initiated by push button");
 }
 
 void help()
@@ -71,11 +73,17 @@ void help()
   Serial.println("\nFirmware ESP32 pour pilotage_VHX7000 par commande sérielle ou par bouton poussoir");
   Serial.println("ColdWay 2022/07/07 by Harold THIBAULT");
   Serial.println("-h pour afficher cet aide.");
-  Serial.println("Envoyer la commande P + CR + LF sur le port sériel/USB pour prendre un cliché");
-  Serial.println("Envoyer la commande DBT xx + CR + LF sur le port sériel/USB pour indiquer le debounce_ime du poussoir en ms");
-  Serial.println("Envoyer la commande DL xx + CR + LF sur le port sériel/USB pour indiquer le delay_time entre les actions des relais de pilotage du VHX 7000 en ms");
-  Serial.println("Envoyer la commande S + CR + LF sur le port sériel/USB pour sauvegarder le paramètres");
-  Serial.println("Appuyer sur le bouton poussoir : porter à la masse la pin " + push_button);
+  Serial.println("Envoyer la commande P sur le port sériel/USB pour prendre un cliché");
+  Serial.println("Envoyer la commande DBT xx sur le port sériel/USB pour indiquer le debounce_ime du poussoir en ms");
+  Serial.println("Envoyer la commande DL xx sur le port sériel/USB pour indiquer le delay_time entre les actions des relais de pilotage du VHX 7000 en ms");
+  Serial.println("Envoyer la commande S sur le port sériel/USB pour sauvegarder le paramètres");
+  Serial.print("Appuyer sur le bouton poussoir pour initier un cliché : porter à la masse la pin ");
+  Serial.println(push_button);
+  Serial.print("La commande des relais \"Pause \" et \"save_to_file\" se fait en 3.3V depuis le µC. Un étage de sortie puissance est nécessaire pour piloter les bobines 12V des relais ");
+  Serial.print("Commande relais \"Pause \"sur PIN ");
+  Serial.println(pause_pin);
+  Serial.print("Commande relais \"save_to_file\" sur PIN ");
+  Serial.println(save_to_file_pin);
 }
 
 void helpByCommand(SerialCommands *sender)
@@ -87,20 +95,28 @@ void debouceTimeAdjust(SerialCommands *sender)
 {
   char *m_str = sender->Next(); // Note: Every call to Next moves the pointer to next parameter
   uint16_t m = atoi(m_str);
-  sender->GetSerial()->println("\ndebounceTime = " + debounce_time);
-  sender->GetSerial()->print("\ndebounceTime modified from  " + debounce_time);
+  sender->GetSerial()->print("\ndebounceTime = ");
+  sender->GetSerial()->println(debounce_time);
+  sender->GetSerial()->print("\ndebounceTime modified from  ");
+  sender->GetSerial()->print(debounce_time);
   debounce_time = m;
-  sender->GetSerial()->println(" to  " + debounce_time);
+  sender->GetSerial()->print(" to  ");
+  sender->GetSerial()->println(debounce_time);
+
 }
 
 void delayTimeAdjust(SerialCommands *sender)
 {
   char *m_str = sender->Next(); // Note: Every call to Next moves the pointer to next parameter
   uint16_t m = atoi(m_str);
-  sender->GetSerial()->println("\ndelayTime = " + dl);
-  sender->GetSerial()->print("\ndelayTime modified from  " + dl);
+  sender->GetSerial()->print("\ndelayTime = ");
+  sender->GetSerial()->println(dl);
+  sender->GetSerial()->print("\ndelayTime modified from ");
+  sender->GetSerial()->print(dl);
   dl = m;
-  sender->GetSerial()->println(" to  " + dl);
+  sender->GetSerial()->print(" to  ");
+  sender->GetSerial()->println(dl);
+
 }
 
 void Save_parameters(SerialCommands *sender)
@@ -151,7 +167,7 @@ void setup()
   debounce_time = preferences.getUShort("debounce_time", default_debounceTime);
   preferences.end(); // EEPROM storage space closed
 
-  attachInterrupt(push_button, ISR, CHANGE);
+  attachInterrupt(push_button, ISR, FALLING);
 }
 
 void loop()
